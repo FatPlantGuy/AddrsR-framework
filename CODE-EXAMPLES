@@ -1,0 +1,68 @@
+
+Here are some examples of module design for the framework.
+aqui tem alguns exemplos de desing dos modules pro framework.
+
+===============================================================================================
+
+Executables:
+
+local module1 = {
+    Name = "module1",
+    Type = "Executable", -- Module type / Tipo do módulo
+    
+    Needs = {
+        -- Path functions used for lazy resolution / Funções de caminho para resolução preguiçosa
+        module2 = function(self, AD) return AD:Find("module2") end, 
+    } -- Dependencies / Dependências
+}
+
+-- Type function required by the 'Executable' contract / Função exigida pelo contrato Executable
+function module1:Run()
+    return self
+end
+
+-- Lifecycle: Initialization phase / Fase de inicialização
+function module1:_Init(AD, resolvedNeeds, shared)
+    print(resolvedNeeds) -- Contains resolved dependencies / Contém as dependências resolvidas
+end
+
+-- Lifecycle: Start phase (optional) / Fase de começo (opcional)
+function module1:_Start(AD, shared)
+    -- Your runtime code here / Seu código de execução aqui
+end
+
+return module1
+
+===============================================================================================
+
+Data:
+
+local PlayerData = {
+    Name = "PlayerData",
+    Type = "Data", -- Module type / Tipo do módulo
+    
+    -- Contract requirement: must contain a Data table / Requisito do contrato: deve conter uma tabela Data
+    Data = {
+        BaseHealth = 100,
+        WalkSpeed = 16,
+    }
+}
+
+-- Type function required by the 'Data' contract / Função exigida pelo contrato Data
+function PlayerData:Get()
+    return self.Data
+end
+
+-- Lifecycle: Initialization phase / Fase de inicialização
+function PlayerData:_Init(AD, resolvedNeeds, shared)
+    -- Optional: set up initial data structures / Opcional: configurar estruturas de dados iniciais
+end
+
+-- Lifecycle: Start phase (optional) / Fase de começo (opcional)
+function PlayerData:_Start(AD, shared)
+    -- Your runtime code here / Seu código de execução aqui
+end
+
+return PlayerData
+
+===============================================================================================
