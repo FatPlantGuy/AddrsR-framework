@@ -1,0 +1,38 @@
+
+As you likely read in the README file, the AddrsR framework has some "boilerplates" that need to be explained before use. So, here are the explanations.
+Provavelmente você leu no arquivo README que o framework AddrsR possui alguns boilerplates/modelos de código que precisam ser explicados antes do uso. Então, aqui estão as explicações.
+
+1. LifeCycle:
+
+en-us*
+
+The lifecycle system is based on 2 optional functions.
+The boot order is: _Init (synchronous, used to setup/load values) ➔ _Start (asynchronous, used to run loops, start systems, etc.).
+The _Init function receives 3 parameters: AD (framework reference), resolvedNeeds (the resolved path functions payload), and shared (the framework's shared library).
+The _Start function receives 2 parameters: AD (framework reference) and shared (the framework's shared library).
+
+pt-br*
+
+O sistema de ciclo de vida é baseado em 2 funções opcionais.
+A ordem de boot é: _Init (síncrono, usado para carregar/preparar valores) ➔ _Start (assíncrono, usado para rodar loops, iniciar sistemas, etc.).
+A função _Init recebe 3 parâmetros: AD (referência do framework), resolvedNeeds (pacote com o resultado das path functions resolvidas) e shared (biblioteca compartilhada do framework).
+A função _Start recebe 2 parâmetros: AD (referência do framework) e shared (biblioteca compartilhada do framework).
+
+2. Dependency system:
+
+en-us*
+
+The dependency system works using a 2-phase process.
+First, you need to create a table named Needs inside your module if you want to use the system properly. This is the baseline.
+Phase 1 (Declaration): You create a "path function" for each dependency you need. A path function is basically an anonymous function inside the Needs table that returns the target module.
+All path functions will be resolved (or at least attempted to be resolved) during boot, and their results will be packed into a payload that is injected as the second parameter of the _Init lifecycle function.
+Phase 2 (Injection): Inside the _Init function, you receive the resolved package and associate the dependencies with your module's internal values. After that, you'll have your needed values ready to go.
+
+pt-br*
+
+O sistema de dependências funciona através de um processo de 2 fases.
+Primeiro, você precisa criar uma tabela chamada Needs dentro do seu módulo se quiser usar o sistema corretamente. Esse é o básico.
+Fase 1 (Declaração): Você cria uma "path function" (função de caminho) para cada dependência. Uma path function é basicamente uma função anônima dentro da tabela Needs que retorna o módulo desejado.
+Todas as path functions serão resolvidas (ou tentarão ser resolvidas) durante o boot, e os resultados serão empacotados e injetados no segundo parâmetro da função de ciclo de vida _Init.
+Fase 2 (Injeção): Dentro da função _Init, você recebe o pacote resolvido e associa as dependências aos valores interno do seu módulo. Depois disso, seus valores estarão prontos para uso.
+
