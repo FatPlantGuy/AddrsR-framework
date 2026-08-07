@@ -4,11 +4,11 @@ aqui tem alguns exemplos de desing dos modules pro framework.
 
 ===============================================================================================
 
-Executables:
+Services:
 
 local module1 = {
     Name = "module1",
-    Type = "Executable", -- Module type / Tipo do módulo
+    Type = "Service", -- Module type / Tipo do módulo
     
     Needs = {
         -- Path functions used for lazy resolution / Funções de caminho para resolução preguiçosa
@@ -16,10 +16,7 @@ local module1 = {
     } -- Dependencies / Dependências
 }
 
--- Type function required by the 'Executable' contract / Função exigida pelo contrato Executable
-function module1:Run()
-    return self
-end
+-- Type "serivce" doesn't need a type function/O tipo "Service" não precisa de função de tipo
 
 -- Lifecycle: Initialization phase / Fase de inicialização
 function module1:_Init(AD, resolvedNeeds, shared)
