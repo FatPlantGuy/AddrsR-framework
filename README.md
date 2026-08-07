@@ -12,3 +12,8 @@ pt-br*
 - O AddrsR atualmente tá em estado de "protótipo", então tem uma série de limitações e especificações que você precisa prestar atenção na hora de usar.
 - O framework ainda tem um bocado de código repetitivo (boilerplate), tipo as "path functions" no sistema de dependências/needs.
 - As dependências são resolvidas estritamente durante a fase de ciclo de vida (lifecycle), o que significa que não dá pra injetar módulos dinamicamente depois do boot.
+
+ALL THE SOURCE CODE, EXPLANATIONS AND EXAMPLES WILL BE IN THE BRANCHS.
+
+- source code: source-code branch
+- explanations and examples: docs branch
