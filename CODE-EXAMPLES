@@ -16,7 +16,7 @@ local module1 = {
     } -- Dependencies / Dependências
 }
 
--- Type "serivce" doesn't need a type function/O tipo "Service" não precisa de função de tipo
+-- Type "Service" doesn't need a type function/O tipo "Service" não precisa de função de tipo
 
 -- Lifecycle: Initialization phase / Fase de inicialização
 function module1:_Init(AD, resolvedNeeds, shared)
