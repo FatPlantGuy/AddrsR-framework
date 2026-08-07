@@ -1,0 +1,97 @@
+-- put it inside PlayerStarterScripts
+
+local AddrsR = require(game:GetService("ReplicatedStorage").AddrsR).Main
+
+local CONFIG = {
+	ShowLoadTimes = true,      
+	ShowLifecycleLogs = false, 
+	ShowFullBootDuration = false,
+	DebugPrefix = "[AddrsR Boot-Client]",
+}
+
+type ModuleBenchmark = {
+	Name: string,
+	LoadTime: number,
+	Data: any,
+}
+
+local ValidModules: { ModuleBenchmark } = {}
+
+local function SeekForModules(parent: Instance)
+	for _, desc in parent:GetDescendants() do
+		if not desc:IsA("ModuleScript") then continue end
+
+		local stLoadTime = os.clock()
+
+		local suc, mod = pcall(require, desc)
+		if not suc then
+			warn(`{CONFIG.DebugPrefix} Failed to require '{desc.Name}': {mod}`)
+			continue
+		end
+
+		local isValid, err = AddrsR:IsValid(mod)
+		if not isValid then
+			warn(`{CONFIG.DebugPrefix} Module '{desc.Name}' rejected by IsValid: {err}`)
+			continue
+		end
+
+		table.insert(ValidModules, {
+			Name = mod.Name,
+			LoadTime = os.clock() - stLoadTime,
+			Data = mod,
+		})
+	end
+end
+
+local function Boot()
+	table.sort(ValidModules, function(a, b)
+		return a.LoadTime > b.LoadTime
+	end)
+
+	local registeredModules: { string } = {}
+
+	for _, modInfo in ipairs(ValidModules) do
+		local registered = AddrsR:Address(modInfo.Data)
+		if registered then
+			table.insert(registeredModules, modInfo.Name)
+
+			if not CONFIG.ShowLoadTimes then continue end
+			print(`{CONFIG.DebugPrefix} [{modInfo.Name}] loaded in {string.format("%.5f", modInfo.LoadTime)}s`)
+		else
+			warn(`{CONFIG.DebugPrefix} Failed to address module '{modInfo.Name}'`)
+		end
+	end
+
+	for _, modName in ipairs(registeredModules) do
+		local suc, err = pcall(function()
+			AddrsR:InitModule(modName)
+		end)
+
+		if not suc then
+			warn(`{CONFIG.DebugPrefix} Error during _Init of '{modName}': {err}`)
+		elseif CONFIG.ShowLifecycleLogs then
+			print(`{CONFIG.DebugPrefix} _Init completed for '{modName}'`)
+		end
+	end
+
+	AddrsR:LockModules()
+	if CONFIG.ShowLifecycleLogs then
+		print(`{CONFIG.DebugPrefix} Registry locked successfully.`)
+	end
+
+	for _, modName in ipairs(registeredModules) do
+		AddrsR:StartModule(modName)
+
+		if not CONFIG.ShowLifecycleLogs then continue end
+		print(`{CONFIG.DebugPrefix} _Start dispatched for '{modName}'`)
+	end
+end
+
+local bootStart = os.clock()
+
+SeekForModules(script)
+Boot()
+
+if CONFIG.ShowFullBootDuration then
+	print(`{CONFIG.DebugPrefix}: Boot took : {os.clock() - bootStart} seconds`)
+end
