@@ -1,0 +1,217 @@
+-- put it inside the loader/AddrsR module
+
+type Server = {
+	OnLoad: (self: Server, SHARED: {any}) -> (),
+	Address: (self: Server, moduleData: Module) -> Module?,
+	Remove: (self: Server, moduleName: string) -> (),
+	Find: (self: Server, moduleName: string, ...any) -> any,
+	IsValid: (self: Server, module: Module) -> (boolean, string?),
+	SolveNeeds: (self: Server, module: Module) -> NeedsPackage?,
+	InitModule: (self: Server, moduleName: string) -> (),
+	StartModule: (self: Server, moduleName: string) -> (),
+	LockModules: (self: Server) -> (),
+}
+
+type NeedsPackage = { [string]: any }
+type SharedTable = { [string]: any }
+
+local Server: Server = {} :: Server
+local Shared: SharedTable
+
+type InitFn = (server: Server, needs: NeedsPackage?, shared: SharedTable?) -> ()
+type StartFn = (server: Server, shared: SharedTable?) -> ()
+type ModFn = (module: Module, server: Server, shared: SharedTable?, ...any) -> any
+
+type Module = {
+	Name: string,
+	Type: string,
+	Needs: { [string]: ModFn }?,
+	_Init: InitFn?,
+	_Start: StartFn?,
+	[string]: any,
+}
+
+type TypeFn = {
+	[string]: {
+		KeyFn: {fnName: string, fnType: string, checkType: ("type" | "typeof")?}?,
+		KeyVal: {valName: string, valType: string, checkType: ("type" | "typeof")?}?,
+		Fn: (module: Module, ...any) -> (any?, any?),
+	}
+}
+
+local TypeFn: TypeFn = {
+	["Service"] = {
+		KeyFn = nil,
+		KeyVal = nil,
+		Fn = function(module: Module, ...: any)
+			return module
+		end,
+	},
+	["Data"] = {
+		KeyFn = {fnName = "Get", fnType = "function", checkType = "type"},
+		KeyVal = {valName = "Data", valType = "table", checkType = "type"},
+		Fn = function(module: Module, ...: any)
+			return module:Get(), module.Data
+		end,
+	}
+}
+
+local function ValidateType(value: any, expectedType: string, checkMode: ("type" | "typeof")?): boolean
+	if checkMode == "type" then
+		return type(value) == expectedType
+	else
+		return typeof(value) == expectedType
+	end
+end
+
+local function FindTypeFn(module: Module): ((module: Module, ...any) -> (any?, any?))?
+	local typeFnTbl = TypeFn[module.Type]
+	if not typeFnTbl then 
+		return nil 
+	end
+
+	local keyFn, keyVal = typeFnTbl.KeyFn, typeFnTbl.KeyVal
+
+	if keyFn then
+		local fnValue = module[keyFn.fnName]
+		if not ValidateType(fnValue, keyFn.fnType, keyFn.checkType) then
+			return nil
+		end
+	end
+
+	if keyVal then
+		local valValue = module[keyVal.valName]
+		if not ValidateType(valValue, keyVal.valType, keyVal.checkType) then
+			return nil
+		end
+	end
+
+	return typeFnTbl.Fn
+end
+
+local Modules: {[string]: Module} = {}
+
+local function SetSimpleProxy<T>(tbl: T, msgErr: string?): T
+	return setmetatable({}, {
+		__index = tbl,
+		__newindex = function(_, key)
+			error(msgErr or string.format("Cannot modify read-only property '%s'", tostring(key)), 2)
+		end,
+		__iter = function()
+			return next, tbl
+		end,
+		__metatable = "Locked"
+	}) :: any
+end
+
+function Server:OnLoad(SHARED: {any})
+	Shared = SHARED
+end
+
+function Server:Address(moduleData: Module): Module?
+	if not self:IsValid(moduleData) then return nil end
+
+	Modules[moduleData.Name] = moduleData
+	return Modules[moduleData.Name]
+end
+
+function Server:Remove(moduleName: string)
+	Modules[moduleName] = nil
+end
+
+function Server:Find(moduleName: string, ...: any): any?
+	local module = Modules[moduleName]
+	if not module then return nil end
+
+	local typeRunner = FindTypeFn(module)
+	local typeFnRes, typeReqRes
+
+	if typeRunner then
+		typeFnRes, typeReqRes = typeRunner(module, ...)
+	end
+
+	return {
+		Module = module,
+		TypeFn = typeFnRes,
+		TypeReq = typeReqRes
+	}
+end
+
+function Server:IsValid(module: Module): (boolean, string?)
+	local success, err = pcall(function()
+		assert(type(module) == "table", "Invalid module data: module must be a table.")
+
+		assert(module.Name, `Invalid module data: module has no name.`)
+		assert(type(module.Name) == "string", `Invalid module name: needs to be a string. Got: {type(module.Name)}`)
+		assert(#module.Name > 0, "Invalid module name: string cannot be empty.")
+		assert(Modules[module.Name] == nil, `Module with name '{module.Name}' is already registered.`)
+
+		assert(module.Type, `Module '{module.Name}' has no type to associate.`)
+		assert(type(module.Type) == "string", `Invalid module type for '{module.Name}': needs to be a string.`)
+		assert(TypeFn[module.Type] ~= nil, `Unrecognized module type '{module.Type}' in '{module.Name}'.`)
+
+		assert(FindTypeFn(module) ~= nil, `Module '{module.Name}' does not fulfill the requirements for type '{module.Type}'. Missing key function or value.`)
+
+		if module.Needs ~= nil then
+			assert(type(module.Needs) == "table", `Invalid Needs field in '{module.Name}': must be a table.`)
+			for _, need in module.Needs do
+				assert(type(need) == "function", "Needs table works only with path functions/functions.")
+			end
+		end
+
+		if module._Init ~= nil then
+			assert(type(module._Init) == "function", `Invalid _Init field in '{module.Name}': must be a function.`)
+		end
+
+		if module._Start ~= nil then
+			assert(type(module._Start) == "function", `Invalid _Start field in '{module.Name}': must be a function.`)
+		end
+	end)
+
+	return success, err
+end
+
+function Server:SolveNeeds(module: Module): NeedsPackage?
+	if not module.Needs then return nil end
+
+	local rawPackage = {}
+	for key, pathFn in module.Needs do
+		local resPath = pathFn(module, self, Shared)
+		
+		if not resPath then
+			warn(`Failed to resolve dependency/need : {key}`)
+			rawPackage[key] = {}
+			continue
+		end
+		
+		rawPackage[key] = resPath
+	end
+
+	return rawPackage
+end
+
+function Server:InitModule(moduleName: string)
+	local module = Modules[moduleName]
+	if not module or not module._Init then return end
+
+	local resolvedNeeds = self:SolveNeeds(module)
+	if module.Needs then
+		module.Needs = SetSimpleProxy(module.Needs, `Cannot modify dependency package for module '{module.Name}'`)
+	end	
+	module:_Init(self, resolvedNeeds, Shared)
+end
+
+function Server:StartModule(moduleName: string)
+	local module = Modules[moduleName]
+	if not module or not module._Start then return end
+
+	task.spawn(function()
+		module:_Start(self, Shared)
+	end)
+end
+
+function Server:LockModules()
+	Modules = SetSimpleProxy(Modules, "Registry is locked")
+end
+
+return Server
