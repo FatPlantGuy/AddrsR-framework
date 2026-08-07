@@ -1,0 +1,52 @@
+--put it into ReplicatedStorage
+
+local RunService = game:GetService("RunService")
+local IS_SERVER = RunService:IsServer()
+
+local framework = {}
+local shared = {}
+
+local LibsToLoad = {
+	Shared = script:FindFirstChild("Shared"),
+	Server = script:FindFirstChild("Server"),
+	Client = script:FindFirstChild("Client")
+}
+
+local function SetSimpleProxy<T>(tbl: T, msgErr: string?): T
+	return setmetatable({}, {
+		__index = tbl,
+		__newindex = function(_, key)
+			error(msgErr or string.format("Cannot modify read-only property '%s'", tostring(key)), 2)
+		end,
+		__iter = function()
+			return next, tbl
+		end,
+		__metatable = "Locked"
+	}) :: any
+end
+
+local function Load(lib: Instance?)
+	if not lib or not lib:IsA("ModuleScript") then return end
+
+	local reqLib = require(lib)
+	if lib == LibsToLoad.Shared then
+		shared = reqLib
+		return
+	end
+
+	if reqLib.OnLoad and typeof(reqLib.OnLoad) == "function" then
+		task.spawn(reqLib.OnLoad, framework, shared)
+	end
+	framework[lib.Name] = reqLib
+end
+
+Load(LibsToLoad.Shared)
+Load(LibsToLoad.Server)
+Load(LibsToLoad.Client)
+
+local mainScope = IS_SERVER and framework.Server or framework.Client
+
+return SetSimpleProxy({
+	Main = mainScope,
+	Shared = shared
+}, "Locked lib, dumbahh")
