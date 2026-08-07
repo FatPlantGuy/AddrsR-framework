@@ -36,3 +36,89 @@ Fase 1 (Declaração): Você cria uma "path function" (função de caminho) para
 Todas as path functions serão resolvidas (ou tentarão ser resolvidas) durante o boot, e os resultados serão empacotados e injetados no segundo parâmetro da função de ciclo de vida _Init.
 Fase 2 (Injeção): Dentro da função _Init, você recebe o pacote resolvido e associa as dependências aos valores interno do seu módulo. Depois disso, seus valores estarão prontos para uso.
 
+Module types:
+
+en-us*
+
+The Module Types (or TypeFunctions) system defines strict contracts and runtime execution behaviors for modules registered in the framework.
+When a module is registered via Address, its Type field determines how the framework validates its structure and how it executes when queried using Find.
+
+    Validation Rules (KeyFn & KeyVal): Every module type can require specific members before registration is allowed.
+        KeyFn: Ensures the module implements a mandatory function (e.g., Service running logic or Data having a Get method).
+        KeyVal: Ensures the module holds a required state or property (e.g., Data holding a Data table).
+        If a module fails its type requirements during IsValid, it is rejected from the registry immediately.
+    Execution Runner (Fn): Defines what happens when Server:Find("ModuleName", ...) is called.
+        Instead of just returning the raw module, Find executes the type's custom runner function and returns a structured payload: { Module, TypeFn, TypeReq }.
+        For Service, calling Find triggers the module's Run method with the server state.
+        For Data, calling Find automatically invokes Get() and returns both its method result (TypeFn) and its state payload (TypeReq).
+
+pt-br*
+
+O sistema de Module Types (ou TypeFunctions) define contratos estritos e comportamentos de execução em tempo de execução para os módulos registrados no framework.
+Quando um módulo é registrado via Address, o campo Type determina como o framework valida sua estrutura e como ele executa ao ser consultado via Find.
+
+    Regras de Validação (KeyFn e KeyVal): Cada tipo de módulo pode exigir membros específicos antes de permitir o registro.
+        KeyFn: Garante que o módulo implemente uma função obrigatória (ex: lógica de execução para Service ou um método Get para Data).
+        KeyVal: Garante que o módulo possua um estado ou propriedade obrigatória (ex: uma tabela Data dentro do módulo Data).
+        Se um módulo falhar nos requisitos do seu tipo durante o IsValid, ele é rejeitado pelo registro imediatamente.
+    Executor de Tipo (Fn): Define o que acontece quando Server:Find("NomeDoModulo", ...) é chamado.
+        Em vez de apenas retornar o módulo bruto, o Find executa a função runner customizada do tipo e retorna um pacote estruturado: { Module, TypeFn, TypeReq }.
+        Para Service, chamar Find dispara o método Run do módulo injetando o contexto do servidor.
+        Para Data, chamar Find invoca automaticamente o método Get() e retorna tanto o resultado da função (TypeFn) quanto a tabela de dados (TypeReq).
+
+
+    Creating custom Module Types:
+
+en-us*
+
+Custom Module Types are created by extending the internal TypeFn dictionary. Each entry defines how a specific category of module validates its members and responds to Server:Find.
+
+A Type configuration consists of 3 properties:
+
+    KeyFn (Optional): Defines a required function that must exist on the module.
+        fnName: The method name expected in the module table (e.g., "Get", "Compute").
+        fnType: Expected type string (usually "function").
+        checkType: Type evaluation mode ("type" or "typeof").
+    KeyVal (Optional): Defines a required property/value that must exist on the module.
+        valName: The key name expected in the module table (e.g., "Data", "Config").
+        valType: Expected type string (e.g., "table", "string").
+        checkType: Type evaluation mode ("type" or "typeof").
+    Fn (Required): The handler function executed when Server:Find(moduleName, ...) is called. Receives the module instance and any extra arguments, returning up to 2 custom values (TypeFn and TypeReq).
+
+Example:
+Lua
+
+TypeFn["Controller"] = {
+    KeyFn = { fnName = "Start", fnType = "function", checkType = "type" },
+    KeyVal = nil,
+    Fn = function(module: Module, ...: any)
+        return module:Start(...)
+    end,
+}
+
+pt-br*
+
+A criação de tipos customizados de módulos é feita estendendo o dicionário interno TypeFn. Cada entrada define como uma categoria específica de módulo valida seus membros e responde ao Server:Find.
+
+A configuração de um Type consiste em 3 propriedades:
+
+    KeyFn (Opcional): Define uma função obrigatória que deve existir no módulo.
+        fnName: O nome do método esperado na tabela do módulo (ex: "Get", "Compute").
+        fnType: O tipo esperado em string (geralmente "function").
+        checkType: O modo de verificação de tipo ("type" ou "typeof").
+    KeyVal (Opcional): Define uma propriedade/valor obrigatório que deve existir no módulo.
+        valName: O nome da chave esperada na tabela do módulo (ex: "Data", "Config").
+        valType: O tipo esperado em string (ex: "table", "string").
+        checkType: O modo de verificação de tipo ("type" ou "typeof").
+    Fn (Obrigatório): A função executada quando Server:Find(nomeDoModulo, ...) é chamado. Recebe a instância do módulo e argumentos extras, retornando até 2 valores customizados (TypeFn e TypeReq).
+
+Exemplo:
+Lua
+
+TypeFn["Controller"] = {
+    KeyFn = { fnName = "Start", fnType = "function", checkType = "type" },
+    KeyVal = nil,
+    Fn = function(module: Module, ...: any)
+        return module:Start(...)
+    end,
+}
