@@ -49,7 +49,7 @@ When a module is registered via Address, its Type field determines how the frame
         If a module fails its type requirements during IsValid, it is rejected from the registry immediately.
     Execution Runner (Fn): Defines what happens when Server:Find("ModuleName", ...) is called.
         Instead of just returning the raw module, Find executes the type's custom runner function and returns a structured payload: { Module, TypeFn, TypeReq }.
-        For Service, calling Find triggers the module's Run method with the server state.
+        For Service, calling Find will only return the package with the Module, but without typeFn or similar elements.
         For Data, calling Find automatically invokes Get() and returns both its method result (TypeFn) and its state payload (TypeReq).
 
 pt-br*
@@ -63,7 +63,7 @@ Quando um módulo é registrado via Address, o campo Type determina como o frame
         Se um módulo falhar nos requisitos do seu tipo durante o IsValid, ele é rejeitado pelo registro imediatamente.
     Executor de Tipo (Fn): Define o que acontece quando Server:Find("NomeDoModulo", ...) é chamado.
         Em vez de apenas retornar o módulo bruto, o Find executa a função runner customizada do tipo e retorna um pacote estruturado: { Module, TypeFn, TypeReq }.
-        Para Service, chamar Find dispara o método Run do módulo injetando o contexto do servidor.
+        Para Service, chamar Find somente retornara o package com Module, porém sem typeFn ou similares.
         Para Data, chamar Find invoca automaticamente o método Get() e retorna tanto o resultado da função (TypeFn) quanto a tabela de dados (TypeReq).
 
 
