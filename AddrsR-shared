@@ -1,0 +1,40 @@
+-- put it inside the loader/AddrsR module
+
+local Shared = {}
+local Libs: { [string]: any } = {}
+
+local function SetSimpleProxy<T>(tbl: T, msgErr: string?): T
+	return setmetatable({}, {
+		__index = tbl,
+		__newindex = function(_, key)
+			error(msgErr or string.format("Cannot modify read-only property '%s'", tostring(key)), 2)
+		end,
+		__iter = function()
+			return next, tbl
+		end,
+		__metatable = "Locked"
+	}) :: any
+end
+
+for _, mod in script:GetChildren() do
+	if not mod:IsA("ModuleScript") then continue end
+
+	local success, result = pcall(require, mod)
+	if success then
+		Libs[mod.Name] = SetSimpleProxy(result, string.format("Cannot modify shared lib '%s'", mod.Name))
+	else
+		warn(string.format("[Shared]: Failed to load module '%s' - %s", mod.Name, tostring(result)))
+	end
+end
+
+function Shared:Find(modName: string): any
+	local lib = Libs[modName]
+	if not lib then
+		warn(string.format("[Shared]: Module not found - '%s'", modName))
+		return nil
+	end
+
+	return lib
+end
+
+return Shared
